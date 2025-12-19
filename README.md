@@ -3,6 +3,10 @@
 > **"数据驱动决策，AI 洞察未来"**  
 > 结合 **OKX 交易所** 的深度流动性数据与 **DeepSeek-R1** 的逻辑推理能力，为您打造机构级的加密货币投研助理。
 
+## 💡 核心价值
+- **全自动**：从数据抓取到研报生成，无需人工干预
+- **深度推理**：基于 DeepSeek-R1 的思维链分析，拒绝浅层涨跌描述
+- **多端推送**：手机端实时接收高价值投研信息
 
 
 ---
@@ -39,6 +43,8 @@
     *   二次开发指南
 *   **[✨ 功能特性 (FEATURES.md)](docs/FEATURES.md)**: 
     *   核心能力与技术亮点详解
+*   **[🐙 Git 指南 (GIT_GUIDE.md)](docs/GIT_GUIDE.md)**: 
+    *   版本控制流程与安全规范
 
 ---
 
@@ -46,15 +52,15 @@
 
 ### 1. 🧠 深度 AI 投研 (Deep Reasoning)
 *   **🧐 智能归因**: 告别“涨了因为买的人多”这种废话。DeepSeek-R1 模型会结合板块效应、资金流向进行逻辑推理。
-*   **� 动态知识库**: 内置“三级缓存”机制 (Memory -> Local JSON -> AI Query)。遇到新上线的币种（如 PNUT），系统会自动询问 AI 并标记其赛道，无需手动更新代码。
-*   **� 结构化输出**: 研报包含 Markdown 表格、情感评分、机会/风险点列举，拒绝大段纯文本。
+*   **🔄 动态知识库**: 内置“三级缓存”机制 (Memory -> Local JSON -> AI Query)。遇到新上线的币种（如 PNUT），系统会自动询问 AI 并标记其赛道，无需手动更新代码。
+*   **📝 结构化输出**: 研报包含 Markdown 表格、情感评分、机会/风险点列举，拒绝大段纯文本。
 
 ### 2. 📊 沉浸式终端体验 (Rich UI)
 *   **🎨 现代化界面**: 使用 `Rich` 库打造，支持彩色日志、动态加载动画 (Spinner)、Markdown 渲染面板。
 *   **🪵 纯净日志**: 控制台只展示关键信息，详细的调试日志 (Debug/Trace) 自动写入文件并轮转备份，保持界面清爽。
 
 ### 3. 🛡️ 企业级工程架构
-*   ** 模块化设计**: API 层、分析层、通知层完全解耦。想换个交易所？只需重写 `okx_client.py`；想换个模型？改 `.env` 即可。
+*   **🧩 模块化设计**: API 层、分析层、通知层完全解耦。想换个交易所？只需重写 `okx_client.py`；想换个模型？改 `.env` 即可。
 *   **⚙️ 灵活调度**: 支持 Crontab 模式（跑一次退出）和 Daemon 模式（常驻后台，每 N 分钟运行一次）。
 *   **🔔 移动端适配**: 飞书/钉钉消息经过专门优化，表格自动转为列表视图，完美适配手机竖屏阅读。
 
@@ -66,11 +72,11 @@
 确保您的系统安装了 Python 3.8 或以上版本。
 
 ```bash
-git clone https://github.com/your-repo/OKXResearch_Analyst.git
+git clone https://github.com/RiemannLIMAN/CryptoOracle-Reserch.git
 cd OKXResearch_Analyst
 ```
 
-### 2.  配置密钥
+### 2. 🔑 配置密钥
 复制配置文件模板：
 ```bash
 cp .env.example .env
@@ -110,11 +116,36 @@ OKXResearch_Analyst/
 │   ├── utils/              # 🛠️ 通用工具 (Logger & Notifier)
 │   └── main.py             # 🚀 程序入口
 ├── .env.example            # 📄 环境变量模板
-├── LICENSE                 # ⚖️ 开源协议 (MIT)
+├── LICENSE                 # ⚖️ 开源协议 (CC BY-NC-SA 4.0)
 ├── requirements.txt        # 📦 项目依赖
 ├── run.bat                 # 🪟 Windows 启动脚本
-└── run.sh                  # � Linux/Mac 启动脚本
+└── run.sh                  # 🐧 Linux/Mac 启动脚本
 ```
+
+---
+
+## 🤝 支持与贡献 (Support & Contribution)
+
+**OKX Research Analyst** 是一个开源项目，我们需要您的力量让它变得更强！
+
+### 如何贡献
+*   **🐛 提交 Bug**：如果您发现程序报错或逻辑漏洞，请提交 Issue 并附上 `logs/okx_research.log` 中的错误堆栈。
+*   **💡 功能建议**：欢迎提出新的指标算法、风控策略或交易适配请求。
+*   **💻 代码提交**：Fork 本项目，创建您的 Feature 分支，并提交 Pull Request。
+
+### 联系我们
+*   **GitHub Issues**: [https://github.com/RiemannLIMAN/CryptoOracle-Reserch/issues](https://github.com/RiemannLIMAN/CryptoOracle-Reserch/issues)
+*   **Email**: niudtao@163.com
+
+### ☕ 支持作者
+如果您觉得本项目对您有帮助，欢迎使用作者的 OKX 邀请码注册，这将支持 Riemann 持续维护本项目。
+
+*   **🦄 OKX 全球邀请码**: `95572792`
+*   **👉 注册链接**: [点击这里注册 OKX (免翻墙)](https://www.okx.com/join/95572792)
+
+感谢每一位贡献者！让 AI 赋能每一个交易员。
+
+**作者：Riemann**
 
 ---
 
