@@ -1,0 +1,14 @@
+{
+    "sectors": {
+        "AI": ["FET", "RENDER", "TAO", "WLD", "ARKM"],
+        "Meme": ["DOGE", "SHIB", "PEPE", "BONK", "WIF"],
+        "Layer1": ["BTC", "ETH", "SOL", "ADA", "AVAX"],
+        "Layer2": ["OP", "ARB", "MATIC", "STRK"],
+        "DeFi": ["UNI", "AAVE", "MKR", "LDO"]
+    },
+    "risk_levels": {
+        "low": ["BTC", "ETH"],
+        "medium": ["SOL", "BNB"],
+        "high": ["Meme", "AI"]
+    }
+}
