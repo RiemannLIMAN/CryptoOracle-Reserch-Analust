@@ -12,6 +12,7 @@ from api.okx_client import OKXClient
 from api.llm_client import LLMClient
 from analysis.fundamental import FundamentalAnalyzer
 from analysis.technical import calculate_change
+from analysis.paper_trader import PaperTrader
 from utils.logger import setup_logger
 from utils.notifier import Notifier
 from config.settings import LOG_DIR, ENABLE_SCHEDULER, SCHEDULE_TIME, SCHEDULE_INTERVAL, FEISHU_WEBHOOK_URL, DINGTALK_WEBHOOK_URL
@@ -53,10 +54,13 @@ def print_welcome():
         border_style="green"
     ))
 
-def format_data_for_llm(df, analyzer, top_n=20):
+def format_data_for_llm(df, analyzer, funding_rates=None, top_n=20):
     """
     将 DataFrame 格式化为 LLM 易读的字符串，并补充赛道信息
     """
+    if funding_rates is None:
+        funding_rates = {}
+
     # 确保 volCcy24h 是数值类型
     df['volCcy24h'] = pd.to_numeric(df['volCcy24h'], errors='coerce')
     
@@ -83,6 +87,13 @@ def format_data_for_llm(df, analyzer, top_n=20):
                     f"Sector: {sector}, "
                     f"24h Change: {change_pct:.2f}%, "
                     f"24h Vol(USDT): {vol:.0f}")
+            
+            # 补充资金费率 (如果有)
+            # inst_id 如 BTC-USDT，funding_rates 键也是 BTC-USDT
+            if inst_id in funding_rates:
+                fr = funding_rates[inst_id]
+                line += f", Funding Rate: {fr:.4f}%"
+            
             summary.append(line)
         except ValueError:
             continue
@@ -102,6 +113,11 @@ def run_analysis_task(user_query=""):
     logger.info("Fetching market data from OKX...")
     df = okx.get_tickers()
     
+    # 1.1 获取资金费率 (作为大盘情绪参考)
+    # 虽然这里只获取了部分主流币的费率，但对 AI 判断市场情绪很有用
+    logger.info("Fetching funding rates...")
+    funding_rates = okx.get_funding_rates()
+    
     if df is None or df.empty:
         logger.error("Failed to fetch data or data is empty.")
         return
@@ -118,7 +134,7 @@ def run_analysis_task(user_query=""):
     if llm.api_key:
         fundamental.update_sectors_with_ai(top_coins)
         
-    data_summary = format_data_for_llm(df, fundamental, top_n=30)
+    data_summary = format_data_for_llm(df, fundamental, funding_rates=funding_rates, top_n=30)
     
     # 3. 分析
     if not llm.api_key:
@@ -136,21 +152,62 @@ def run_analysis_task(user_query=""):
         analysis = llm.analyze_market(data_summary, user_query)
         
     logger.info("Analysis completed.")
+
+    # --- 新增：模拟交易环节 ---
+    trader = PaperTrader()
+    
+    # 1. 更新当前持仓市值 (需要最新的价格字典)
+    # 将 df 转为 {symbol: price}
+    current_prices = dict(zip(df['instId'], df['last']))
+    trader.update_valuations(current_prices)
+    
+    # 2. 获取 AI 决策
+    logger.info("AI is evaluating trading opportunities...")
+    portfolio_status = trader.get_report()
+    decision = llm.get_trade_decision(analysis, portfolio_status)
+    
+    trade_log = ""
+    if decision and decision.get('action') in ['buy', 'sell']:
+        symbol = decision['symbol']
+        action = decision['action']
+        amount = decision.get('amount_usdt', 0)
+        reason = decision.get('reason', 'AI Decision')
+        
+        # 获取当前价格
+        price = current_prices.get(symbol)
+        if price:
+            success = trader.execute_trade(action, symbol, price, amount, reason)
+            if success:
+                trade_log = f"\n\n🤖 **AI 模拟交易执行**\n" \
+                            f"- 动作: {action.upper()} {symbol}\n" \
+                            f"- 价格: {price}\n" \
+                            f"- 金额: {amount} U\n" \
+                            f"- 理由: {reason}"
+            else:
+                logger.warning(f"Trade failed: {action} {symbol}")
+    
+    # 更新后的持仓报告
+    final_report = trader.get_report()
+    
+    # 将模拟盘信息附加到研报末尾
+    full_content = analysis + "\n\n---\n" + final_report
+    if trade_log:
+        full_content += trade_log
     
     # 4. 展示与通知
     # 终端输出
     console.print("\n")
-    console.print(Panel(Markdown(analysis), title="📊 OKX Market Analysis Report", border_style="blue"))
+    console.print(Panel(Markdown(full_content), title="📊 OKX Market Analysis Report", border_style="blue"))
     
     # 将完整的分析报告写入日志文件，作为存档
-    logger.info(f"Analysis Report Content:\n{'-'*50}\n{analysis}\n{'-'*50}")
+    logger.info(f"Analysis Report Content:\n{'-'*50}\n{full_content}\n{'-'*50}")
 
     # 推送通知
     if FEISHU_WEBHOOK_URL or DINGTALK_WEBHOOK_URL:
         notifier = Notifier(feishu_webhook=FEISHU_WEBHOOK_URL, dingtalk_webhook=DINGTALK_WEBHOOK_URL)
         # 截取摘要或发送完整报告（注意消息长度限制，这里发送前500字符或完整内容）
         # 实际生产中可能需要拆分发送
-        notifier.send("OKX Market Analysis Report", analysis)
+        notifier.send("OKX Market Analysis Report", full_content)
 
 def main():
     # 打印欢迎信息

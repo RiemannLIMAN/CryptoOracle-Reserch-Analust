@@ -49,6 +49,11 @@ class LLMClient:
    - 🔴 **风险**：列出需回避的板块或币种。
 4. **投资建议**：针对稳健型和激进型投资者的具体操作建议，建议需具体且易于执行。
 
+关于资金费率 (Funding Rate) 的说明：
+- 正值 (>0)：代表多头支付空头费用，数值越高（如 >0.03%），表明做多情绪越拥挤，可能面临回调风险。
+- 负值 (<0)：代表空头支付多头费用，数值越低，表明做空情绪越浓，可能出现轧空反弹。
+- 请在分析中结合资金费率（如果有提供）来辅助判断市场情绪。
+
 保持客观、理性，数据驱动。语言风格需专业严谨但通俗易懂，避免过度堆砌术语，对关键概念可做简要解释。使用 Markdown 格式优化排版。
 """
         
@@ -62,6 +67,53 @@ class LLMClient:
 """
 
         return self._call_llm(system_prompt, user_prompt)
+
+    def get_trade_decision(self, market_analysis, current_portfolio):
+        """
+        基于市场分析报告和当前持仓，生成模拟交易指令
+        :param market_analysis: 刚才生成的分析报告
+        :param current_portfolio: 当前持仓状态 (字符串描述)
+        """
+        if not self.api_key:
+            return None
+
+        system_prompt = """你是一个专业的量化交易员。你的任务是根据市场分析报告和当前持仓，给出一个明确的模拟交易指令。
+你的初始资金是 10000 USDT。
+请仅返回一个 JSON 对象，不要包含任何 Markdown 标记或解释文字。
+
+JSON 格式要求：
+{
+    "action": "buy" | "sell" | "hold",
+    "symbol": "BTC-USDT",  # 必须是分析报告中提到的币种
+    "amount_usdt": 1000,   # 买入金额（USDT），或者卖出金额（-1 代表清仓）
+    "reason": "简短的交易理由（20字以内）"
+}
+
+规则：
+1. 如果市场不明朗或风险较高，请选择 "hold"（观望）。
+2. 单次交易金额建议控制在总资金的 10%-20% 以内（约 1000-2000 U），做好风控。
+3. 如果决定买入，确保理由充分（如：资金费率异常、突破关键位、板块轮动）。
+4. 如果当前持有某币种且分析提示风险，可考虑 "sell"。
+"""
+        
+        user_prompt = f"""
+[市场分析报告]
+{market_analysis}
+
+[当前持仓状态]
+{current_portfolio}
+
+请给出你的交易决策（JSON格式）：
+"""
+        try:
+            response = self._call_llm(system_prompt, user_prompt)
+            # 清理 Markdown
+            clean_json = response.replace("```json", "").replace("```", "").strip()
+            return json.loads(clean_json)
+        except Exception as e:
+            logger.error(f"Failed to generate trade decision: {e}")
+            return None
+
 
     def classify_sectors(self, coin_list):
         """

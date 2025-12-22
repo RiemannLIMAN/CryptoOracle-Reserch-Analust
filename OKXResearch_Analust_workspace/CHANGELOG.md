@@ -2,6 +2,40 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.0] - 2025-12-22
+
+### 🇬🇧 English Version
+
+#### ✨ New Features
+*   **🤖 Paper Trading System**: Introduced a fully automated paper trading module (`src/analysis/paper_trader.py`).
+    *   **Virtual Portfolio**: Manages a simulated 10,000 USDT balance with persistent storage in `data/paper_trading.json`.
+    *   **AI Decision Making**: AI now generates actionable trade signals (BUY/SELL/HOLD) based on market analysis and current portfolio status.
+    *   **Performance Tracking**: Weekly reports on total asset value and ROI are appended to notifications.
+*   **📉 Funding Rate Analysis**:
+    *   Added `get_funding_rates()` to `OKXClient` to fetch real-time funding rates for top coins (BTC, ETH, SOL, DOGE).
+    *   Updated `LLMClient` prompts to interpret funding rates as market sentiment indicators (e.g., crowded longs vs. short squeezes).
+
+#### 📚 Documentation
+*   **Git Guide**: Added `docs/GIT_GUIDE.md` for version control best practices.
+*   **Readme Update**: Moved `README.md` to project root and updated "Support & Contribution" section.
+
+---
+
+### 🇨🇳 中文版本
+
+#### ✨ 新特性
+*   **🤖 模拟盘回测系统**: 新增全自动模拟交易模块 (`src/analysis/paper_trader.py`)。
+    *   **虚拟账户**: 管理 10,000 USDT 初始资金，数据持久化存储于 `data/paper_trading.json`。
+    *   **AI 交易决策**: AI 基于研报和当前持仓，自动生成买卖指令 (BUY/SELL/HOLD)。
+    *   **业绩追踪**: 每次通知自动附带模拟盘周报（总资产、收益率）。
+*   **📉 资金费率分析**:
+    *   `OKXClient` 新增 `get_funding_rates()` 接口，实时抓取主流币（BTC, ETH 等）的资金费率。
+    *   更新了 AI Prompt，使其能根据费率正负值判断市场多空拥挤度。
+
+#### 📚 文档
+*   **Git 指南**: 新增 `docs/GIT_GUIDE.md`，规范版本控制流程。
+*   **README 更新**: 将 `README.md` 移至项目根目录，并新增“支持与贡献”板块。
+
 ## [0.1.0] - 2025-12-20
 
 ### 🇬🇧 English Version

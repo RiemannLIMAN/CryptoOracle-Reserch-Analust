@@ -39,3 +39,8 @@ okx_research/
 # Logs
 logs/
 *.log
+
+# Data
+data/
+*.json
+

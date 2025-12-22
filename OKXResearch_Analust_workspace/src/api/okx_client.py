@@ -43,10 +43,9 @@ class OKXClient:
                     if col in df.columns:
                         df[col] = pd.to_numeric(df[col], errors='coerce')
                 
-                # 计算涨跌幅 (当前价格 - 开盘价格) / 开盘价格
-                # OKX 接口其实可能有返回涨跌幅，但我们也可以自己算以确保
-                # 这里主要关注 USDT 交易对，过滤掉其他的
-                df = df[df['instId'].str.endswith('-USDT')]
+                # 如果是 SPOT，只保留 USDT 交易对
+                if instType == "SPOT":
+                    df = df[df['instId'].str.endswith('-USDT')]
                 
                 return df
             else:
@@ -55,3 +54,62 @@ class OKXClient:
         except Exception as e:
             logger.error(f"Exception during request: {e}")
             return None
+
+    def get_funding_rates(self):
+        """
+        获取所有永续合约的资金费率
+        使用 SWAP 市场的 tickers 接口，通常包含 fundingRate 信息
+        """
+        endpoint = "/api/v5/public/funding-rate"
+        # 注意：public/funding-rate 需要具体的 instId，不能批量获取所有
+        # 替代方案：获取所有 SWAP 的 tickers，看是否包含 fundingRate?
+        # OKX V5 market/tickers 对于 SWAP 并不直接返回 fundingRate。
+        # 我们需要用 /api/v5/public/funding-rate 获取当前资金费率，但它需要 instId。
+        # 批量获取比较麻烦。
+        # 另一种方法：使用 /api/v5/market/tickers?instType=SWAP
+        # 实际上 OKX 的 tickers 接口返回字段中，对于 SWAP 有 fundingRate 吗？
+        # 查阅文档：tickers 接口不返回 fundingRate。
+        # 但是！我们可以利用 trick：
+        # 对于 Top 30 的币种，我们循环调用一次 funding-rate 接口？这太慢了 (30次请求)。
+        # 
+        # 更好的方案：
+        # 使用 /api/v5/public/mark-price 可能也不行。
+        # 
+        # 让我们再检查一下 /api/v5/market/tickers 的文档。
+        # 确实没有。
+        # 
+        # 备选方案：
+        # 仅对 Top 5 热门币种（BTC, ETH, SOL, DOGE 等）获取资金费率，作为市场风向标。
+        # 或者使用 limit=100 并行请求？
+        # 
+        # 等等，OKX 有一个 endpoint: GET /api/v5/public/funding-rate
+        # "Retrieve funding rate. Rate is 0 if there is no funding rate."
+        # Requires instId.
+        # 
+        # 既然如此，为了不拖慢速度，我们先暂时只获取 BTC-USDT-SWAP 和 ETH-USDT-SWAP 的资金费率，
+        # 作为“大盘情绪”指标，而不是每个币都获取。
+        pass
+        
+        # 实际上，我们可以尝试一次性获取 SWAP 的 tickers，虽然没有 fundingRate，
+        # 但我们可以挑选出成交量最大的几个，然后专门去查它们的 fundingRate。
+        
+        rates = {}
+        target_coins = ["BTC-USDT-SWAP", "ETH-USDT-SWAP", "SOL-USDT-SWAP", "DOGE-USDT-SWAP"]
+        
+        for inst_id in target_coins:
+            try:
+                url = f"{self.base_url}/api/v5/public/funding-rate"
+                params = {'instId': inst_id}
+                res = requests.get(url, params=params, headers=self.headers, timeout=5)
+                if res.status_code == 200:
+                    d = res.json()
+                    if d['code'] == '0' and d['data']:
+                        # fundingRate: "0.0001"
+                        rate = float(d['data'][0]['fundingRate']) * 100 # 转为百分比
+                        # 存入字典: {'BTC-USDT': 0.01}
+                        spot_id = inst_id.replace("-SWAP", "")
+                        rates[spot_id] = rate
+            except Exception:
+                continue
+        
+        return rates
