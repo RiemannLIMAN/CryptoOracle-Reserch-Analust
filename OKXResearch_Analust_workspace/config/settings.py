@@ -27,6 +27,9 @@ SCHEDULE_INTERVAL = int(os.getenv("SCHEDULE_INTERVAL", "0")) # 默认0，表示�
 FEISHU_WEBHOOK_URL = os.getenv("FEISHU_WEBHOOK_URL")
 DINGTALK_WEBHOOK_URL = os.getenv("DINGTALK_WEBHOOK_URL")
 
+# 新闻源配置
+CRYPTOPANIC_API_KEY = os.getenv("CRYPTOPANIC_API_KEY")
+
 # 日志配置
 LOG_DIR = BASE_DIR / "logs"
 LOG_DIR.mkdir(exist_ok=True)

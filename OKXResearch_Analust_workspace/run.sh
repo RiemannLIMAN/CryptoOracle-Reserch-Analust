@@ -30,6 +30,26 @@ if ! command -v python3 &> /dev/null; then
     exit 1
 fi
 
+# Check for existing process
+EXISTING_PID=$(pgrep -f "python src/main.py" || true)
+if [ ! -z "$EXISTING_PID" ]; then
+    YELLOW='\033[1;33m'
+    NC='\033[0m'
+    echo -e "${YELLOW}[WARNING] Found existing instance(s) of OKX Research Analyst running (PID: $EXISTING_PID).${NC}"
+    read -p "Do you want to stop them and start a new one? (y/n): " choice
+    case "$choice" in 
+      y|Y ) 
+        echo "[INFO] Stopping existing processes..."
+        kill $EXISTING_PID
+        sleep 1
+        ;;
+      * ) 
+        echo "[INFO] Aborting startup. Existing process is kept running."
+        exit 0
+        ;;
+    esac
+fi
+
 # 2. Check/Create Virtual Environment
 # Check if we are already in a virtual environment (VIRTUAL_ENV env var is set)
 if [ -z "$VIRTUAL_ENV" ]; then
@@ -48,6 +68,10 @@ fi
 # 4. Install/Update Dependencies
 echo "[INFO] Installing/Updating dependencies..."
 pip install -r requirements.txt -q
+
+# 4.1 Clean __pycache__ to prevent ImportError
+echo "[INFO] Cleaning Python cache..."
+find . -type d -name "__pycache__" -exec rm -rf {} +
 
 # 5. Run the Application
 mkdir -p logs

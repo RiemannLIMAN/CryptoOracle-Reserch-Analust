@@ -29,37 +29,119 @@ class LLMClient:
         else:
             logger.debug(f"LLM Client initialized with model: {self.model}")
 
-    def analyze_market(self, market_data_summary, user_query=""):
+    def verify_and_analyze_news(self, news_items):
         """
-        利用 LLM 分析市场数据
+        验证新闻真实性并分析情感
+        :param news_items: 新闻列表（字典列表，包含 title, source, domain 等）
+        """
+        if not self.api_key or not news_items:
+            return None
+
+        # 格式化新闻输入
+        news_str = ""
+        for idx, item in enumerate(news_items[:5]): # 每次只分析前5条，避免token超限
+            news_str += f"{idx+1}. [{item.get('domain', 'Unknown')}] {item['title']} (发布时间: {item.get('published_at', 'Unknown')})\n"
+
+        system_prompt = """你是一个专业的加密货币情报分析师。请对以下新闻进行【简短而精准】的逻辑推演。
+不要复述新闻内容，而是直接指出：这条新闻背后的逻辑是什么？会导致什么结果？
+
+请输出 JSON 格式（不要 Markdown）：
+{
+    "market_summary": "一句话总结当前最核心的市场叙事（50字以内）。",
+    "verified_news": [
+        {
+            "id": 1,
+            "title": "简化的新闻标题（不要超过20字）",
+            "credibility": "High" | "Medium" | "Low",
+            "impact": "High" | "Medium",
+            "logic": "简短的一句话逻辑推演（例如：MicroStrategy 再次买入 BTC -> 减少市场流通量 -> 长期利好）",
+            "sentiment_score": 0.8
+        }
+    ]
+}
+"""
+        
+        user_prompt = f"""
+以下是来自聚合器的最新加密新闻：
+{news_str}
+
+请进行验证和逻辑推演：
+"""
+        try:
+            response = self._call_llm(system_prompt, user_prompt)
+            # 清理 Markdown
+            clean_json = response.replace("```json", "").replace("```", "").strip()
+            return json.loads(clean_json)
+        except Exception as e:
+            logger.error(f"News verification failed: {e}")
+            return None
+
+    def analyze_market(self, market_data_summary, user_query="", news_analysis=None):
+        """
+        利用 LLM 分析市场数据 (结合新闻)
         :param market_data_summary: 市场数据的摘要字符串
         :param user_query: 用户特定的查询需求
+        :param news_analysis: 验证过的新闻情报 (JSON dict)
         """
         if not self.api_key:
             return "Error: LLM API Key is missing. Please configure .env file."
 
-        system_prompt = """你是一个专业的加密货币市场分析师。你的分析风格需要兼备专业深度与通俗易懂性，即便是新手也能理解复杂的市场动态。你的任务是根据提供的市场数据，分析币种的区别，并给出投资建议。
+        # 构建新闻摘要文本
+        news_context = ""
+        if news_analysis and news_analysis.get('verified_news'):
+            # 将新闻整合为一个独立板块，只列出核心逻辑
+            news_context = "\n\n📰 **新闻情报与逻辑推演**:\n"
+            news_context += f"> **当前叙事**: {news_analysis.get('market_summary', '无')}\n\n"
+            
+            # 使用表格形式展示新闻，更清晰
+            news_context += "| 信号 | 新闻标题 | 逻辑与影响 |\n"
+            news_context += "| :---: | :--- | :--- |\n"
+            
+            for news in news_analysis['verified_news']:
+                # 只展示高/中可信度且非噪音的新闻
+                if news['credibility'] != 'Low' and news.get('impact') != 'Low':
+                    sentiment_icon = "🟢" if news['sentiment_score'] > 0 else "🔴"
+                    
+                    # 清理换行符，防止破坏表格
+                    title = news.get('title', 'Unknown').replace('\n', ' ').replace('|', '/')
+                    logic = news.get('logic', '无逻辑推演').replace('\n', ' ').replace('|', '/')
+                    
+                    # 截断过长的标题
+                    if len(title) > 50:
+                        title = title[:50] + "..."
+                    
+                    news_context += f"| {sentiment_icon} | {title} | {logic} |\n"
 
-请严格遵守以下输出格式要求，不要包含任何寒暄语（如“你好”、“作为分析师...”）：
+        system_prompt = """你是一个专业的加密货币市场分析师。你的分析风格需要兼备专业深度与通俗易懂性。
 
-1. **核心市场摘要**：用简练且通俗的语言总结当前市场整体情绪（100字以内）。
-2. **重点币种分析表格**：必须使用 Markdown 表格形式，列头包含：币种、赛道、24h涨跌幅、分析与评价（简短且易懂）。选取3-5个最具代表性的币种。
-3. **赛道机会与风险**：
-   - 🟢 **机会**：列出1-2个潜力赛道或币种，并说明理由（逻辑清晰，通俗易懂）。
+核心任务：
+1. **结合新闻逻辑与盘面数据**：不要割裂地看新闻和K线。如果新闻利好但价格下跌，请指出这种背离。
+2. **简短准确**：在分析中，用一句话点破新闻带来的逻辑影响。
+
+请严格遵守以下输出格式要求，不要包含任何寒暄语：
+
+1. **核心市场摘要**：总结当前市场整体情绪，必须结合新闻面和技术面。
+2. **📰 新闻情报区**：
+   - 直接展示上方提供的【新闻情报与逻辑推演】表格内容。
+   - **重要**：如果上方提供了表格，请原封不动地将其复制到这里，保持 Markdown 表格格式，不要将其转换为文本列表。
+3. **重点币种分析表格**：Markdown 表格，列头：币种、赛道、24h涨跌幅、分析与评价。
+4. **赛道机会与风险**：
+   - 🟢 **机会**：列出潜力赛道或币种。
    - 🔴 **风险**：列出需回避的板块或币种。
-4. **投资建议**：针对稳健型和激进型投资者的具体操作建议，建议需具体且易于执行。
+5. **投资建议**：针对稳健型和激进型投资者的具体操作建议。
 
 关于资金费率 (Funding Rate) 的说明：
-- 正值 (>0)：代表多头支付空头费用，数值越高（如 >0.03%），表明做多情绪越拥挤，可能面临回调风险。
-- 负值 (<0)：代表空头支付多头费用，数值越低，表明做空情绪越浓，可能出现轧空反弹。
-- 请在分析中结合资金费率（如果有提供）来辅助判断市场情绪。
+- 正值 (>0)：代表多头支付空头费用，数值越高（如 >0.03%），表明做多情绪越拥挤。
+- 负值 (<0)：代表空头支付多头费用，数值越低，表明做空情绪越浓。
 
-保持客观、理性，数据驱动。语言风格需专业严谨但通俗易懂，避免过度堆砌术语，对关键概念可做简要解释。使用 Markdown 格式优化排版。
+保持客观、理性，数据驱动。语言风格需专业严谨但通俗易懂。
 """
         
         user_prompt = f"""
 以下是当前 OKX 市场的部分热门币种数据摘要（已按交易量排序）：
 {market_data_summary}
+
+{news_context}
 
 用户的需求是：{user_query if user_query else "分析这些币种的区别，并推荐值得关注的币种。"}
 
